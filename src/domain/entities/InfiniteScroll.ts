@@ -4,6 +4,8 @@
  * Core types and interfaces for infinite scroll functionality
  */
 
+import type React from "react";
+
 /**
  * Configuration for infinite scroll behavior
  */
