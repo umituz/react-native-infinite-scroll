@@ -54,6 +54,20 @@ const DefaultError: React.FC<{ error: string; retry: () => void }> = ({
 );
 
 /**
+ * Render error component
+ */
+function renderErrorComponent(
+  error: string,
+  retry: () => void,
+  errorComponent?: (error: string, retry: () => void) => React.ReactElement,
+): React.ReactElement {
+  if (errorComponent) {
+    return errorComponent(error, retry);
+  }
+  return <DefaultError error={error} retry={retry} />;
+}
+
+/**
  * InfiniteScrollList Component
  *
  * FlatList wrapper with automatic infinite scroll and pagination
@@ -109,10 +123,7 @@ export function InfiniteScrollList<T>({
 
   // Error state
   if (state.error) {
-    if (errorComponent) {
-      return errorComponent(state.error, refresh);
-    }
-    return <DefaultError error={state.error} retry={refresh} />;
+    return renderErrorComponent(state.error, refresh, errorComponent);
   }
 
   // Empty state
