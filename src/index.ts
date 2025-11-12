@@ -52,6 +52,16 @@ export type {
 } from "./domain/entities/InfiniteScroll";
 
 // =============================================================================
+// DOMAIN LAYER - Utilities
+// =============================================================================
+
+export {
+  calculateEndReachedThreshold,
+  getPageSlice,
+  hasMoreItems,
+} from "./domain/entities/InfiniteScrollUtils";
+
+// =============================================================================
 // PRESENTATION LAYER - Hooks
 // =============================================================================
 

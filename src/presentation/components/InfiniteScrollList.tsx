@@ -9,6 +9,7 @@ import React from "react";
 import { FlatList, View, ActivityIndicator, Text, StyleSheet } from "react-native";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import type { InfiniteScrollListProps } from "../../domain/entities/InfiniteScroll";
+import { calculateEndReachedThreshold } from "../../domain/entities/InfiniteScrollUtils";
 
 /**
  * Default loading component
@@ -109,7 +110,8 @@ export function InfiniteScrollList<T>({
   // Error state
   if (state.error) {
     if (errorComponent) {
-      return errorComponent(state.error, refresh);
+      const ErrorElement = errorComponent(state.error, refresh);
+      return ErrorElement;
     }
     return <DefaultError error={state.error} retry={refresh} />;
   }
@@ -126,7 +128,7 @@ export function InfiniteScrollList<T>({
       renderItem={({ item, index }) => renderItem(item, index)}
       keyExtractor={(item, index) => getItemKey(item, index)}
       onEndReached={handleEndReached}
-      onEndReachedThreshold={config.threshold ? config.threshold / 100 : 0.1}
+      onEndReachedThreshold={calculateEndReachedThreshold(config.threshold)}
       onRefresh={refresh}
       refreshing={state.isRefreshing}
       ListHeaderComponent={ListHeaderComponent}

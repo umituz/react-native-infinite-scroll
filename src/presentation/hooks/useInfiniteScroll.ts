@@ -10,6 +10,7 @@ import type {
   InfiniteScrollState,
   UseInfiniteScrollReturn,
 } from "../../domain/entities/InfiniteScroll";
+import { hasMoreItems } from "../../domain/entities/InfiniteScrollUtils";
 
 /**
  * Default configuration values
@@ -21,17 +22,6 @@ const DEFAULT_CONFIG = {
   initialPage: 0,
 };
 
-/**
- * Default hasMore function
- * Checks if last page has fewer items than pageSize
- */
-function defaultHasMore<T>(
-  lastPage: T[],
-  _allPages: T[][],
-  pageSize: number,
-): boolean {
-  return lastPage.length >= pageSize;
-}
 
 /**
  * useInfiniteScroll Hook
@@ -85,7 +75,7 @@ export function useInfiniteScroll<T>(
       if (customHasMore) {
         return customHasMore(lastPage, allPages);
       }
-      return defaultHasMore(lastPage, allPages, pageSize);
+      return hasMoreItems(lastPage, allPages, pageSize);
     },
     [customHasMore, pageSize],
   );
