@@ -110,8 +110,7 @@ export function InfiniteScrollList<T>({
   // Error state
   if (state.error) {
     if (errorComponent) {
-      const ErrorElement = errorComponent(state.error, refresh);
-      return ErrorElement;
+      return errorComponent(state.error, refresh);
     }
     return <DefaultError error={state.error} retry={refresh} />;
   }
