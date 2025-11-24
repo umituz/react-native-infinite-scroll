@@ -1,7 +1,7 @@
 /**
- * Infinite Scroll Utilities
+ * Pagination Utilities
  *
- * Pure functions for infinite scroll calculations
+ * Pure functions for pagination calculations
  * Follows SOLID, DRY, KISS principles
  */
 
@@ -61,4 +61,3 @@ export function hasMoreItems<T>(
   // If last page has fewer items than pageSize, we've reached the end
   return lastPage.length >= pageSize;
 }
-

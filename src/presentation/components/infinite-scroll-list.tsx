@@ -1,57 +1,20 @@
 /**
  * InfiniteScrollList Component
  *
- * Simple, reusable FlatList wrapper with infinite scroll support
+ * Presentation component for infinite scroll list
  * Follows SOLID, DRY, KISS principles
+ * Single Responsibility: Render infinite scroll list
  */
 
 import React from "react";
-import { FlatList, View, ActivityIndicator, Text, StyleSheet } from "react-native";
+import { FlatList, StyleSheet } from "react-native";
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
-import type { InfiniteScrollListProps } from "../../domain/entities/InfiniteScroll";
-import { calculateEndReachedThreshold } from "../../domain/entities/InfiniteScrollUtils";
-
-/**
- * Default loading component
- */
-const DefaultLoading: React.FC = () => (
-  <View style={styles.centerContainer}>
-    <ActivityIndicator size="large" />
-  </View>
-);
-
-/**
- * Default loading more component
- */
-const DefaultLoadingMore: React.FC = () => (
-  <View style={styles.loadingMoreContainer}>
-    <ActivityIndicator size="small" />
-  </View>
-);
-
-/**
- * Default empty component
- */
-const DefaultEmpty: React.FC = () => (
-  <View style={styles.centerContainer}>
-    <Text style={styles.emptyText}>No items found</Text>
-  </View>
-);
-
-/**
- * Default error component
- */
-const DefaultError: React.FC<{ error: string; retry: () => void }> = ({
-  error,
-  retry,
-}) => (
-  <View style={styles.centerContainer}>
-    <Text style={styles.errorText}>{error}</Text>
-    <Text style={styles.retryText} onPress={retry}>
-      Tap to retry
-    </Text>
-  </View>
-);
+import { calculateEndReachedThreshold } from "../../domain/utils/pagination-utils";
+import type { InfiniteScrollListProps } from "../../domain/interfaces/infinite-scroll-list-props";
+import { Loading } from "./loading";
+import { LoadingMore } from "./loading-more";
+import { Empty } from "./empty";
+import { Error } from "./error";
 
 /**
  * Render error component
@@ -64,7 +27,7 @@ function renderErrorComponent(
   if (errorComponent) {
     return errorComponent(error, retry);
   }
-  return <DefaultError error={error} retry={retry} />;
+  return <Error error={error} onRetry={retry} />;
 }
 
 /**
@@ -118,7 +81,7 @@ export function InfiniteScrollList<T>({
 
   // Loading state
   if (state.isLoading) {
-    return loadingComponent || <DefaultLoading />;
+    return loadingComponent || <Loading />;
   }
 
   // Error state
@@ -128,7 +91,7 @@ export function InfiniteScrollList<T>({
 
   // Empty state
   if (items.length === 0 && !state.isLoading) {
-    return emptyComponent || <DefaultEmpty />;
+    return emptyComponent || <Empty />;
   }
 
   // Render list
@@ -145,41 +108,10 @@ export function InfiniteScrollList<T>({
       ListFooterComponent={
         <>
           {ListFooterComponent}
-          {state.isLoadingMore && (loadingMoreComponent || <DefaultLoadingMore />)}
+          {state.isLoadingMore && (loadingMoreComponent || <LoadingMore />)}
         </>
       }
       {...flatListProps}
     />
   );
 }
-
-const styles = StyleSheet.create({
-  centerContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingMoreContainer: {
-    padding: 16,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-  },
-  errorText: {
-    fontSize: 16,
-    color: "#d32f2f",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  retryText: {
-    fontSize: 14,
-    color: "#1976d2",
-    textAlign: "center",
-    marginTop: 8,
-  },
-});
-

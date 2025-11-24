@@ -1,75 +1,30 @@
 /**
- * @umituz/react-native-infinite-scroll - Public API
+ * React Native Infinite Scroll
  *
- * Modern, reusable infinite scroll system for React Native
- * with automatic pagination, loading states, and FlatList integration.
- *
- * Features:
- * - Automatic pagination with configurable threshold
- * - Loading states (initial, loading more, refreshing)
- * - Error handling with retry
- * - Pull-to-refresh support
- * - Customizable components
- * - TypeScript support with generics
- * - Follows SOLID, DRY, KISS principles
- *
- * Usage:
- * ```tsx
- * import { InfiniteScrollList, useInfiniteScroll } from '@umituz/react-native-infinite-scroll';
- *
- * // Using component
- * <InfiniteScrollList
- *   config={{
- *     pageSize: 20,
- *     threshold: 5,
- *     fetchData: async (page, pageSize) => {
- *       const response = await api.getItems({ page, limit: pageSize });
- *       return response.data;
- *     },
- *   }}
- *   renderItem={(item) => <ItemCard item={item} />}
- * />
- *
- * // Using hook
- * const { items, loadMore, refresh, canLoadMore } = useInfiniteScroll({
- *   pageSize: 20,
- *   fetchData: async (page, pageSize) => {
- *     return await api.getItems({ page, limit: pageSize });
- *   },
- * });
- * ```
+ * Clean Architecture implementation of infinite scroll for React Native
+ * Follows SOLID, DRY, KISS principles
  */
 
-// =============================================================================
-// DOMAIN LAYER - Entities
-// =============================================================================
+// Domain Layer
+export type { InfiniteScrollConfig } from "./domain/types/infinite-scroll-config";
+export type { InfiniteScrollState } from "./domain/types/infinite-scroll-state";
+export type { UseInfiniteScrollReturn } from "./domain/types/infinite-scroll-return";
+export type { InfiniteScrollListProps } from "./domain/interfaces/infinite-scroll-list-props";
+export { calculateEndReachedThreshold, getPageSlice, hasMoreItems } from "./domain/utils/pagination-utils";
 
-export type {
-  InfiniteScrollConfig,
-  InfiniteScrollState,
-  UseInfiniteScrollReturn,
-  InfiniteScrollListProps,
-} from "./domain/entities/InfiniteScroll";
+// Application Layer
+export { StateManagerService } from "./application/services/state-manager.service";
+export { InfiniteScrollService } from "./application/services/infinite-scroll.service";
+export { LoadMoreUseCase } from "./application/use-cases/load-more.use-case";
 
-// =============================================================================
-// DOMAIN LAYER - Utilities
-// =============================================================================
+// Infrastructure Layer
+export type { StorageAdapter } from "./infrastructure/storage/local-storage.adapter";
+export { LocalStorageAdapter } from "./infrastructure/storage/local-storage.adapter";
 
-export {
-  calculateEndReachedThreshold,
-  getPageSlice,
-  hasMoreItems,
-} from "./domain/entities/InfiniteScrollUtils";
-
-// =============================================================================
-// PRESENTATION LAYER - Hooks
-// =============================================================================
-
+// Presentation Layer
 export { useInfiniteScroll } from "./presentation/hooks/useInfiniteScroll";
-
-// =============================================================================
-// PRESENTATION LAYER - Components
-// =============================================================================
-
-export { InfiniteScrollList } from "./presentation/components/InfiniteScrollList";
-
+export { InfiniteScrollList } from "./presentation/components/infinite-scroll-list";
+export { Loading } from "./presentation/components/loading";
+export { LoadingMore } from "./presentation/components/loading-more";
+export { Empty } from "./presentation/components/empty";
+export { Error } from "./presentation/components/error";
