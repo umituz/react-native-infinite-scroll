@@ -10,12 +10,14 @@ export type { InfiniteScrollConfig } from "./domain/types/infinite-scroll-config
 export type { InfiniteScrollState } from "./domain/types/infinite-scroll-state";
 export type { UseInfiniteScrollReturn } from "./domain/types/infinite-scroll-return";
 export type { InfiniteScrollListProps } from "./domain/interfaces/infinite-scroll-list-props";
-export { calculateEndReachedThreshold, getPageSlice, hasMoreItems } from "./domain/utils/pagination-utils";
+export {
+  calculateEndReachedThreshold,
+  getPageSlice,
+  hasMoreItems,
+} from "./domain/utils/pagination-utils";
 
 // Application Layer
-export { StateManagerService } from "./application/services/state-manager.service";
 export { InfiniteScrollService } from "./application/services/infinite-scroll.service";
-export { LoadMoreUseCase } from "./application/use-cases/load-more.use-case";
 
 // Infrastructure Layer
 export type { StorageAdapter } from "./infrastructure/storage/local-storage.adapter";

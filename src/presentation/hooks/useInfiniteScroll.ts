@@ -6,13 +6,10 @@
  * Single Responsibility: Orchestrate infinite scroll operations
  */
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { InfiniteScrollConfig } from "../../domain/types/infinite-scroll-config";
 import type { InfiniteScrollState } from "../../domain/types/infinite-scroll-state";
 import type { UseInfiniteScrollReturn } from "../../domain/types/infinite-scroll-return";
-import { StateManagerService } from "../../application/services/state-manager.service";
-import { InfiniteScrollService } from "../../application/services/infinite-scroll.service";
-import { LoadMoreUseCase } from "../../application/use-cases/load-more.use-case";
 
 /**
  * Default configuration values
@@ -25,78 +22,72 @@ const DEFAULT_CONFIG = {
 };
 
 /**
+ * Create initial state
+ */
+function createInitialState<T>(
+  initialPage: number,
+  totalItems?: number,
+): InfiniteScrollState<T> {
+  return {
+    items: [],
+    pages: [],
+    currentPage: initialPage,
+    hasMore: true,
+    isLoading: true,
+    isLoadingMore: false,
+    isRefreshing: false,
+    error: null,
+    totalItems,
+  };
+}
+
+/**
  * useInfiniteScroll Hook
  *
- * Manages infinite scroll state and data fetching
- *
- * @example
- * ```tsx
- * const { items, loadMore, refresh, canLoadMore, isLoading } = useInfiniteScroll({
- *   pageSize: 20,
- *   threshold: 5,
- *   fetchData: async (page, pageSize) => {
- *     const response = await api.getItems({ page, limit: pageSize });
- *     return response.data;
- *   },
- * });
- * ```
+ * Manages infinite scroll state and data fetching with proper React state sync
  */
 export function useInfiniteScroll<T>(
   config: InfiniteScrollConfig<T>,
 ): UseInfiniteScrollReturn<T> {
-  // Merge config with defaults
-  const mergedConfig = useMemo(
-    () => ({
-      ...DEFAULT_CONFIG,
-      ...config,
-    }),
-    [config],
+  const {
+    pageSize = DEFAULT_CONFIG.pageSize,
+    initialPage = DEFAULT_CONFIG.initialPage,
+    autoLoad = DEFAULT_CONFIG.autoLoad,
+    totalItems,
+    fetchData,
+    getItemKey,
+  } = config;
+
+  const [state, setState] = useState<InfiniteScrollState<T>>(() =>
+    createInitialState<T>(initialPage, totalItems),
   );
 
-  // Initialize services
-  const infiniteScrollService = useMemo(
-    () => new InfiniteScrollService(mergedConfig),
-    [mergedConfig],
-  );
-
-  const initialState: InfiniteScrollState<T> = useMemo(
-    () => ({
-      items: [],
-      pages: [],
-      currentPage: mergedConfig.initialPage,
-      hasMore: true,
-      isLoading: true,
-      isLoadingMore: false,
-      isRefreshing: false,
-      error: null,
-      totalItems: mergedConfig.totalItems,
-    }),
-    [mergedConfig.initialPage, mergedConfig.totalItems],
-  );
-
-  const stateManager = useMemo(
-    () => new StateManagerService(initialState),
-    [initialState],
-  );
-
-  const loadMoreUseCase = useMemo(
-    () => new LoadMoreUseCase(stateManager, infiniteScrollService),
-    [stateManager, infiniteScrollService],
-  );
-
-  const [state, setState] = useState<InfiniteScrollState<T>>(initialState);
   const isLoadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
-  // Sync state updates
   useEffect(() => {
-    const unsubscribe = () => {}; // Could implement observer pattern here
-    const updateState = () => setState(stateManager.getState());
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-    // Initial sync
-    updateState();
-
-    return unsubscribe;
-  }, [stateManager]);
+  /**
+   * Check if there are more items to load
+   */
+  const checkHasMore = useCallback(
+    (newData: T[], allPages: T[][]): boolean => {
+      if (newData.length < pageSize) {
+        return false;
+      }
+      if (totalItems !== undefined) {
+        const totalLoaded = allPages.flat().length;
+        return totalLoaded < totalItems;
+      }
+      return true;
+    },
+    [pageSize, totalItems],
+  );
 
   /**
    * Load initial data
@@ -105,30 +96,99 @@ export function useInfiniteScroll<T>(
     if (isLoadingRef.current) return;
 
     isLoadingRef.current = true;
-    stateManager.setLoading(true);
-    stateManager.setError(null);
+
+    if (isMountedRef.current) {
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+    }
 
     try {
-      const data = await infiniteScrollService.loadPage(mergedConfig.initialPage);
-      const hasMore = infiniteScrollService.checkHasMore(data, [data]);
+      const data = await fetchData(initialPage, pageSize);
+      const hasMore = checkHasMore(data, [data]);
 
-      stateManager.setInitialData(data, hasMore, mergedConfig.totalItems);
+      if (isMountedRef.current) {
+        setState({
+          items: data,
+          pages: [data],
+          currentPage: initialPage,
+          hasMore,
+          isLoading: false,
+          isLoadingMore: false,
+          isRefreshing: false,
+          error: null,
+          totalItems,
+        });
+      }
     } catch (error) {
-      stateManager.setError(
-        error instanceof Error ? error.message : "Failed to load data"
-      );
-      stateManager.setLoading(false);
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: error instanceof Error ? error.message : "Failed to load data",
+        }));
+      }
     } finally {
       isLoadingRef.current = false;
     }
-  }, [infiniteScrollService, stateManager, mergedConfig]);
+  }, [fetchData, initialPage, pageSize, checkHasMore, totalItems]);
 
   /**
    * Load more items
    */
   const loadMore = useCallback(async () => {
-    await loadMoreUseCase.execute();
-  }, [loadMoreUseCase]);
+    if (
+      isLoadingRef.current ||
+      !state.hasMore ||
+      state.isLoadingMore ||
+      state.isLoading
+    ) {
+      return;
+    }
+
+    isLoadingRef.current = true;
+
+    if (isMountedRef.current) {
+      setState((prev) => ({ ...prev, isLoadingMore: true, error: null }));
+    }
+
+    try {
+      const nextPage = state.currentPage + 1;
+      const data = await fetchData(nextPage, pageSize);
+      const newPages = [...state.pages, data];
+      const hasMore = checkHasMore(data, newPages);
+
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          items: newPages.flat(),
+          pages: newPages,
+          currentPage: nextPage,
+          hasMore,
+          isLoadingMore: false,
+          error: null,
+        }));
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isLoadingMore: false,
+          error:
+            error instanceof Error ? error.message : "Failed to load more items",
+        }));
+      }
+    } finally {
+      isLoadingRef.current = false;
+    }
+  }, [
+    state.hasMore,
+    state.isLoadingMore,
+    state.isLoading,
+    state.currentPage,
+    state.pages,
+    fetchData,
+    pageSize,
+    checkHasMore,
+  ]);
 
   /**
    * Refresh all data
@@ -137,40 +197,61 @@ export function useInfiniteScroll<T>(
     if (isLoadingRef.current) return;
 
     isLoadingRef.current = true;
-    stateManager.setRefreshing(true);
-    stateManager.setError(null);
+
+    if (isMountedRef.current) {
+      setState((prev) => ({ ...prev, isRefreshing: true, error: null }));
+    }
 
     try {
-      const data = await infiniteScrollService.loadPage(mergedConfig.initialPage);
-      const hasMore = infiniteScrollService.checkHasMore(data, [data]);
+      const data = await fetchData(initialPage, pageSize);
+      const hasMore = checkHasMore(data, [data]);
 
-      stateManager.setInitialData(data, hasMore, mergedConfig.totalItems);
+      if (isMountedRef.current) {
+        setState({
+          items: data,
+          pages: [data],
+          currentPage: initialPage,
+          hasMore,
+          isLoading: false,
+          isLoadingMore: false,
+          isRefreshing: false,
+          error: null,
+          totalItems,
+        });
+      }
     } catch (error) {
-      stateManager.setError(
-        error instanceof Error ? error.message : "Failed to refresh data"
-      );
-      stateManager.setRefreshing(false);
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isRefreshing: false,
+          error:
+            error instanceof Error ? error.message : "Failed to refresh data",
+        }));
+      }
     } finally {
       isLoadingRef.current = false;
     }
-  }, [infiniteScrollService, stateManager, mergedConfig]);
+  }, [fetchData, initialPage, pageSize, checkHasMore, totalItems]);
 
   /**
-   * Reset to initial state
+   * Reset to initial state and reload
    */
   const reset = useCallback(() => {
-    stateManager.reset(mergedConfig.initialPage, mergedConfig.totalItems);
     isLoadingRef.current = false;
-  }, [stateManager, mergedConfig]);
+    setState(createInitialState<T>(initialPage, totalItems));
+  }, [initialPage, totalItems]);
 
   /**
    * Load initial data on mount
    */
   useEffect(() => {
-    loadInitial();
-  }, [loadInitial]);
+    if (autoLoad) {
+      loadInitial();
+    }
+  }, [autoLoad, loadInitial]);
 
-  const canLoadMore = stateManager.canLoadMore();
+  const canLoadMore =
+    state.hasMore && !state.isLoadingMore && !state.isLoading;
 
   return {
     items: state.items,
