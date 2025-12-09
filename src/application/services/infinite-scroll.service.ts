@@ -6,13 +6,13 @@
  * Single Responsibility: Business logic for infinite scroll operations
  */
 
-import type { InfiniteScrollConfig } from "../../domain/types/infinite-scroll-config";
+import type { PageBasedConfig } from "../../domain/types/infinite-scroll-config";
 import { hasMoreItems } from "../../domain/utils/pagination-utils";
 
 export class InfiniteScrollService<T> {
-  private config: InfiniteScrollConfig<T>;
+  private config: PageBasedConfig<T>;
 
-  constructor(config: InfiniteScrollConfig<T>) {
+  constructor(config: PageBasedConfig<T>) {
     this.config = config;
   }
 
