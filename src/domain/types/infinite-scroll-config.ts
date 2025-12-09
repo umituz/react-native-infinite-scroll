@@ -5,7 +5,19 @@
  * Follows SOLID, DRY, KISS principles
  */
 
-export interface InfiniteScrollConfig<T> {
+/**
+ * Paginated result for cursor-based pagination
+ */
+export interface PaginatedResult<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+/**
+ * Base configuration shared by all pagination modes
+ */
+interface BaseConfig<T> {
   /**
    * Total number of items available (optional, for progress tracking)
    */
@@ -30,6 +42,20 @@ export interface InfiniteScrollConfig<T> {
   autoLoad?: boolean;
 
   /**
+   * Optional: Function to get unique key for each item
+   * If not provided, uses array index
+   * @param item - Item to get key for
+   * @param index - Item index
+   * @returns Unique key string
+   */
+  getItemKey?: (item: T, index: number) => string;
+}
+
+/**
+ * Page-based pagination configuration (default, backward compatible)
+ */
+export interface PageBasedConfig<T> extends BaseConfig<T> {
+  /**
    * Initial page number (0-indexed)
    * Default: 0
    */
@@ -51,13 +77,32 @@ export interface InfiniteScrollConfig<T> {
    * @returns true if there are more items to load
    */
   hasMore?: (lastPage: T[], allPages: T[][]) => boolean;
+}
+
+/**
+ * Cursor-based pagination configuration (new, for Firestore)
+ */
+export interface CursorBasedConfig<T> extends BaseConfig<T> {
+  /**
+   * Discriminator for cursor-based mode
+   */
+  paginationMode: "cursor";
 
   /**
-   * Optional: Function to get unique key for each item
-   * If not provided, uses array index
-   * @param item - Item to get key for
-   * @param index - Item index
-   * @returns Unique key string
+   * Function to fetch data using cursor
+   * @param cursor - Cursor for next page (undefined for first page)
+   * @param pageSize - Number of items per page
+   * @returns Promise resolving to paginated result with cursor
    */
-  getItemKey?: (item: T, index: number) => string;
+  fetchCursor: (
+    cursor: string | undefined,
+    pageSize: number,
+  ) => Promise<PaginatedResult<T>>;
 }
+
+/**
+ * Infinite scroll configuration (discriminated union)
+ */
+export type InfiniteScrollConfig<T> =
+  | PageBasedConfig<T>
+  | CursorBasedConfig<T>;

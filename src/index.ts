@@ -6,7 +6,12 @@
  */
 
 // Domain Layer
-export type { InfiniteScrollConfig } from "./domain/types/infinite-scroll-config";
+export type {
+  InfiniteScrollConfig,
+  PaginatedResult,
+  PageBasedConfig,
+  CursorBasedConfig,
+} from "./domain/types/infinite-scroll-config";
 export type { InfiniteScrollState } from "./domain/types/infinite-scroll-state";
 export type { UseInfiniteScrollReturn } from "./domain/types/infinite-scroll-return";
 export type { InfiniteScrollListProps } from "./domain/interfaces/infinite-scroll-list-props";

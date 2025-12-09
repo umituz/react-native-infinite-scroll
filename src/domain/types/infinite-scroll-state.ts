@@ -12,14 +12,19 @@ export interface InfiniteScrollState<T> {
   items: T[];
 
   /**
-   * All pages of items
+   * All pages of items (used in page-based mode)
    */
   pages: T[][];
 
   /**
-   * Current page number (0-indexed)
+   * Current page number (0-indexed, page-based mode)
    */
   currentPage: number;
+
+  /**
+   * Current cursor (cursor-based mode)
+   */
+  cursor: string | null;
 
   /**
    * Whether more items are available

@@ -1,19 +1,15 @@
 /**
  * useInfiniteScroll Hook
- *
- * Presentation hook for infinite scroll functionality
- * Follows SOLID, DRY, KISS principles
- * Single Responsibility: Orchestrate infinite scroll operations
+ * Supports page-based and cursor-based pagination
+ * SOLID: Single Responsibility - Orchestrate infinite scroll
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { InfiniteScrollConfig } from "../../domain/types/infinite-scroll-config";
 import type { InfiniteScrollState } from "../../domain/types/infinite-scroll-state";
 import type { UseInfiniteScrollReturn } from "../../domain/types/infinite-scroll-return";
+import { loadData, loadMoreData, isCursorMode } from "./pagination.helper";
 
-/**
- * Default configuration values
- */
 const DEFAULT_CONFIG = {
   pageSize: 20,
   threshold: 5,
@@ -21,9 +17,6 @@ const DEFAULT_CONFIG = {
   initialPage: 0,
 };
 
-/**
- * Create initial state
- */
 function createInitialState<T>(
   initialPage: number,
   totalItems?: number,
@@ -32,6 +25,7 @@ function createInitialState<T>(
     items: [],
     pages: [],
     currentPage: initialPage,
+    cursor: null,
     hasMore: true,
     isLoading: true,
     isLoadingMore: false,
@@ -41,22 +35,18 @@ function createInitialState<T>(
   };
 }
 
-/**
- * useInfiniteScroll Hook
- *
- * Manages infinite scroll state and data fetching with proper React state sync
- */
 export function useInfiniteScroll<T>(
   config: InfiniteScrollConfig<T>,
 ): UseInfiniteScrollReturn<T> {
   const {
     pageSize = DEFAULT_CONFIG.pageSize,
-    initialPage = DEFAULT_CONFIG.initialPage,
     autoLoad = DEFAULT_CONFIG.autoLoad,
     totalItems,
-    fetchData,
     getItemKey,
   } = config;
+
+  const initialPage =
+    "initialPage" in config ? config.initialPage || 0 : DEFAULT_CONFIG.initialPage;
 
   const [state, setState] = useState<InfiniteScrollState<T>>(() =>
     createInitialState<T>(initialPage, totalItems),
@@ -72,29 +62,8 @@ export function useInfiniteScroll<T>(
     };
   }, []);
 
-  /**
-   * Check if there are more items to load
-   */
-  const checkHasMore = useCallback(
-    (newData: T[], allPages: T[][]): boolean => {
-      if (newData.length < pageSize) {
-        return false;
-      }
-      if (totalItems !== undefined) {
-        const totalLoaded = allPages.flat().length;
-        return totalLoaded < totalItems;
-      }
-      return true;
-    },
-    [pageSize, totalItems],
-  );
-
-  /**
-   * Load initial data
-   */
   const loadInitial = useCallback(async () => {
     if (isLoadingRef.current) return;
-
     isLoadingRef.current = true;
 
     if (isMountedRef.current) {
@@ -102,21 +71,9 @@ export function useInfiniteScroll<T>(
     }
 
     try {
-      const data = await fetchData(initialPage, pageSize);
-      const hasMore = checkHasMore(data, [data]);
-
+      const newState = await loadData(config, initialPage, pageSize, totalItems);
       if (isMountedRef.current) {
-        setState({
-          items: data,
-          pages: [data],
-          currentPage: initialPage,
-          hasMore,
-          isLoading: false,
-          isLoadingMore: false,
-          isRefreshing: false,
-          error: null,
-          totalItems,
-        });
+        setState(newState);
       }
     } catch (error) {
       if (isMountedRef.current) {
@@ -129,11 +86,8 @@ export function useInfiniteScroll<T>(
     } finally {
       isLoadingRef.current = false;
     }
-  }, [fetchData, initialPage, pageSize, checkHasMore, totalItems]);
+  }, [config, initialPage, pageSize, totalItems]);
 
-  /**
-   * Load more items
-   */
   const loadMore = useCallback(async () => {
     if (
       isLoadingRef.current ||
@@ -144,6 +98,8 @@ export function useInfiniteScroll<T>(
       return;
     }
 
+    if (isCursorMode(config) && !state.cursor) return;
+
     isLoadingRef.current = true;
 
     if (isMountedRef.current) {
@@ -151,21 +107,9 @@ export function useInfiniteScroll<T>(
     }
 
     try {
-      const nextPage = state.currentPage + 1;
-      const data = await fetchData(nextPage, pageSize);
-      const newPages = [...state.pages, data];
-      const hasMore = checkHasMore(data, newPages);
-
+      const updates = await loadMoreData(config, state, pageSize);
       if (isMountedRef.current) {
-        setState((prev) => ({
-          ...prev,
-          items: newPages.flat(),
-          pages: newPages,
-          currentPage: nextPage,
-          hasMore,
-          isLoadingMore: false,
-          error: null,
-        }));
+        setState((prev) => ({ ...prev, ...updates }));
       }
     } catch (error) {
       if (isMountedRef.current) {
@@ -179,23 +123,10 @@ export function useInfiniteScroll<T>(
     } finally {
       isLoadingRef.current = false;
     }
-  }, [
-    state.hasMore,
-    state.isLoadingMore,
-    state.isLoading,
-    state.currentPage,
-    state.pages,
-    fetchData,
-    pageSize,
-    checkHasMore,
-  ]);
+  }, [config, state, pageSize]);
 
-  /**
-   * Refresh all data
-   */
   const refresh = useCallback(async () => {
     if (isLoadingRef.current) return;
-
     isLoadingRef.current = true;
 
     if (isMountedRef.current) {
@@ -203,21 +134,9 @@ export function useInfiniteScroll<T>(
     }
 
     try {
-      const data = await fetchData(initialPage, pageSize);
-      const hasMore = checkHasMore(data, [data]);
-
+      const newState = await loadData(config, initialPage, pageSize, totalItems);
       if (isMountedRef.current) {
-        setState({
-          items: data,
-          pages: [data],
-          currentPage: initialPage,
-          hasMore,
-          isLoading: false,
-          isLoadingMore: false,
-          isRefreshing: false,
-          error: null,
-          totalItems,
-        });
+        setState(newState);
       }
     } catch (error) {
       if (isMountedRef.current) {
@@ -231,19 +150,13 @@ export function useInfiniteScroll<T>(
     } finally {
       isLoadingRef.current = false;
     }
-  }, [fetchData, initialPage, pageSize, checkHasMore, totalItems]);
+  }, [config, initialPage, pageSize, totalItems]);
 
-  /**
-   * Reset to initial state and reload
-   */
   const reset = useCallback(() => {
     isLoadingRef.current = false;
     setState(createInitialState<T>(initialPage, totalItems));
   }, [initialPage, totalItems]);
 
-  /**
-   * Load initial data on mount
-   */
   useEffect(() => {
     if (autoLoad) {
       loadInitial();
