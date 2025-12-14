@@ -1,6 +1,6 @@
 {
   "name": "@umituz/react-native-infinite-scroll",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Modern, reusable infinite scroll system for React Native with automatic pagination, loading states, and FlatList integration",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
